@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2021"
 authors = ["Raul Victor Trombin <raulvtrombin@gmail.com>"]
 description = "This crate serves as the entry point for embedding applications using Rust on Blue Robotics's Ping devices family"
-repository = "https://github.com/bluerobotics/ping-viewer-next"
+repository = "https://github.com/lhharris/ping-viewer-next"
 license = "MIT"
 
 [dependencies]
