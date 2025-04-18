@@ -53,6 +53,23 @@ impl DeviceActor {
                         .send(Ok(PingAnswer::NotSupported(ping_request)));
                 }
             },
+            PingRequest::Tsr1000(device_request) => match &self.device_type {
+                DeviceType::Tsr1000(device) => {
+                    trace!("Handling Tsr1000 request: {device_request:?}");
+                    let answer = device.handle(device_request).await;
+                    let _ = request.respond_to.send(answer);
+                }
+                _ => {
+                    warn!(
+                        "Unsupported request for device type: {:?}",
+                        &self.device_type
+                    );
+                    let ping_request = request.request;
+                    let _ = request
+                        .respond_to
+                        .send(Ok(PingAnswer::NotSupported(ping_request)));
+                }
+            },
             PingRequest::Common(device_request) => match &self.device_type {
                 DeviceType::Common(device) => {
                     trace!("Handling Common request: {device_request:?}");
@@ -65,6 +82,11 @@ impl DeviceActor {
                     let _ = request.respond_to.send(answer);
                 }
                 DeviceType::Ping360(device) => {
+                    trace!("Handling Common request: {device_request:?}");
+                    let answer = device.handle(device_request).await;
+                    let _ = request.respond_to.send(answer);
+                }
+                DeviceType::Tsr1000(device) => {
                     trace!("Handling Common request: {device_request:?}");
                     let answer = device.handle(device_request).await;
                     let _ = request.respond_to.send(answer);
@@ -144,6 +166,18 @@ impl DeviceActor {
                 };
                 device_type_check
             }
+            DeviceType::Tsr1000(device) => {
+                let device_type_check = match device.device_information().await {
+                    Ok(result) => result.device_type,
+                    Err(e) => {
+                        return Err(DeviceError::PingError(e));
+                    }
+                };
+                if device_type_check == 1 {
+                    return Ok(PingAnswer::UpgradeResult(UpgradeResult::Ping1D));
+                };
+                device_type_check
+            }
             _ => {
                 todo!()
             }
@@ -160,6 +194,7 @@ impl DeviceActor {
             match device_type_check {
                 1 => DeviceType::Ping1D(bluerobotics_ping::ping1d::Device { common }),
                 2 => DeviceType::Ping360(bluerobotics_ping::ping360::Device { common }),
+	      100 => DeviceType::Tsr1000(bluerobotics_ping::tsr1000::Device { common }),
                 _ => DeviceType::Common(bluerobotics_ping::common::Device { common }),
             }
         }
@@ -171,6 +206,7 @@ impl DeviceActor {
         let upgrade_result = match device_type_check {
             1 => UpgradeResult::Ping1D,
             2 => UpgradeResult::Ping360,
+          100 => UpgradeResult::Tsr1000,
             _ => UpgradeResult::Unknown,
         };
 
@@ -178,6 +214,7 @@ impl DeviceActor {
             DeviceType::Common(device) => create_device_type(device.common, device_type_check),
             DeviceType::Ping1D(device) => create_device_type(device.common, device_type_check),
             DeviceType::Ping360(device) => create_device_type(device.common, device_type_check),
+            DeviceType::Tsr1000(device) => create_device_type(device.common, device_type_check),
             _ => {
                 // Unreachable.
                 self.device_type = device_type_tmp;
@@ -269,6 +306,7 @@ pub enum DeviceType {
     Common(bluerobotics_ping::common::Device),
     Ping1D(bluerobotics_ping::device::Ping1D),
     Ping360(bluerobotics_ping::device::Ping360),
+    Tsr1000(bluerobotics_ping::device::Tsr1000),
     Null,
 }
 
@@ -277,12 +315,14 @@ pub enum UpgradeResult {
     Unknown,
     Ping1D,
     Ping360,
+    Tsr1000,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
 pub enum PingRequest {
     Ping1D(Ping1DRequest),
     Ping360(Ping360Request),
+    Tsr1000(Tsr1000Request),
     Common(PingCommonRequest),
     GetSubscriber,
     Upgrade,
@@ -329,6 +369,70 @@ pub enum Ping360Request {
     Transducer(bluerobotics_ping::ping360::TransducerStruct),
     Reset(bluerobotics_ping::ping360::ResetStruct),
     AutoTransmit(bluerobotics_ping::ping360::AutoTransmitStruct),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
+pub enum Tsr1000Request {
+    DeviceID,
+    ModeAuto,
+    Distance,
+    Profile,
+    SpeedOfSound,
+    Voltage5,
+    DeviceId,
+    FirmwareVersion,
+    Range,
+    TransmitDuration,
+    PingInterval,
+    ProcessorTemperature,
+    PcbTemperature,
+    GeneralInfo,
+    GainSetting,
+    PingEnable,
+    DistanceSimple,
+    SetDeviceId(bluerobotics_ping::tsr1000::SetDeviceIdStruct),
+    SetModeAuto(bluerobotics_ping::tsr1000::SetModeAutoStruct),
+    SetPingInterval(bluerobotics_ping::tsr1000::SetPingIntervalStruct),
+    SetPingEnable(bluerobotics_ping::tsr1000::SetPingEnableStruct),
+    SetSpeedOfSound(bluerobotics_ping::tsr1000::SetSpeedOfSoundStruct),
+    SetRange(bluerobotics_ping::tsr1000::SetRangeStruct),
+    SetGainSetting(bluerobotics_ping::tsr1000::SetGainSettingStruct),
+    ContinuousStart(bluerobotics_ping::tsr1000::ContinuousStartStruct),
+    ContinuousStop(bluerobotics_ping::tsr1000::ContinuousStopStruct),
+    GotoBootloader,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
+pub enum Tsr1000Resuts {
+    DeviceID,
+    ModeAuto,
+    Distance,
+    Profile,
+    SpeedOfSound,
+    Voltage5,
+    DeviceId,
+    FirmwareVersion,
+    Range,
+    TransmitDuration,
+    PingInterval,
+    ProcessorTemperature,
+    PcbTemperature,
+    GeneralInfo,
+    GainSetting,
+    PingEnable,
+    DistanceSimple,
+    GPSLocation,
+    SetGPSLocation(bluerobotics_ping::tsr1000::SetDeviceIdStruct),
+    SetDeviceId(bluerobotics_ping::tsr1000::SetDeviceIdStruct),
+    SetModeAuto(bluerobotics_ping::tsr1000::SetModeAutoStruct),
+    SetPingInterval(bluerobotics_ping::tsr1000::SetPingIntervalStruct),
+    SetPingEnable(bluerobotics_ping::tsr1000::SetPingEnableStruct),
+    SetSpeedOfSound(bluerobotics_ping::tsr1000::SetSpeedOfSoundStruct),
+    SetRange(bluerobotics_ping::tsr1000::SetRangeStruct),
+    SetGainSetting(bluerobotics_ping::tsr1000::SetGainSettingStruct),
+    ContinuousStart(bluerobotics_ping::tsr1000::ContinuousStartStruct),
+    ContinuousStop(bluerobotics_ping::tsr1000::ContinuousStopStruct),
+    GotoBootloader,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
@@ -634,6 +738,212 @@ impl Requests<Ping360Request> for bluerobotics_ping::device::Ping360 {
     }
 }
 
+impl Requests<Tsr1000Request> for bluerobotics_ping::device::Tsr1000 {
+    type Reply = Result<PingAnswer, DeviceError>;
+
+    async fn handle(&self, msg: Tsr1000Request) -> Self::Reply {
+        match &msg {
+            Tsr1000Request::DeviceID => match self.device_id().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::DeviceId(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::Distance => match self.distance().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::Distance(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::ModeAuto => match self.mode_auto().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::ModeAuto(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::Profile => match self.profile().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::Profile(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::SpeedOfSound => match self.speed_of_sound().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::SpeedOfSound(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::Voltage5 => match self.voltage_5().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::Voltage5(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::DeviceId => match self.device_id().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::DeviceId(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::FirmwareVersion => match self.firmware_version().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::FirmwareVersion(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::Range => match self.range().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::Range(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::TransmitDuration => match self.transmit_duration().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::TransmitDuration(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::PingInterval => match self.ping_interval().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::PingInterval(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::ProcessorTemperature => match self.processor_temperature().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::ProcessorTemperature(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::PcbTemperature => match self.pcb_temperature().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::PcbTemperature(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::GeneralInfo => match self.general_info().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::GeneralInfo(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::GainSetting => match self.gain_setting().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::GainSetting(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::PingEnable => match self.ping_enable().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::PingEnable(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::DistanceSimple => match self.distance_simple().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Tsr1000(
+                        bluerobotics_ping::tsr1000::Messages::DistanceSimple(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            Tsr1000Request::SetDeviceId(req_body) => {
+                match self.set_device_id(req_body.device_id).await {
+                    Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                    Err(e) => Err(DeviceError::PingError(e)),
+                }
+            }
+            Tsr1000Request::ContinuousStart(req_body) => {
+                match self.continuous_start(req_body.id).await {
+                    Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                    Err(e) => Err(DeviceError::PingError(e)),
+                }
+            }
+            Tsr1000Request::ContinuousStop(req_body) => {
+                match self.continuous_stop(req_body.id).await {
+                    Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                    Err(e) => Err(DeviceError::PingError(e)),
+                }
+            }
+            Tsr1000Request::SetModeAuto(req_body) => {
+                match self.set_mode_auto(req_body.mode_auto).await {
+                    Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                    Err(e) => Err(DeviceError::PingError(e)),
+                }
+            }
+            Tsr1000Request::SetPingInterval(req_body) => {
+                match self.set_ping_interval(req_body.ping_interval).await {
+                    Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                    Err(e) => Err(DeviceError::PingError(e)),
+                }
+            }
+            Tsr1000Request::SetPingEnable(req_body) => {
+                match self.set_ping_enable(req_body.ping_enabled).await {
+                    Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                    Err(e) => Err(DeviceError::PingError(e)),
+                }
+            }
+            Tsr1000Request::SetSpeedOfSound(req_body) => {
+                match self.set_speed_of_sound(req_body.speed_of_sound).await {
+                    Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                    Err(e) => Err(DeviceError::PingError(e)),
+                }
+            }
+            Tsr1000Request::SetRange(req_body) => {
+                match self
+                    .set_range(req_body.scan_start, req_body.scan_length)
+                    .await
+                {
+                    Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                    Err(e) => Err(DeviceError::PingError(e)),
+                }
+            }
+            Tsr1000Request::SetGainSetting(req_body) => {
+                match self.set_gain_setting(req_body.gain_setting).await {
+                    Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                    Err(e) => Err(DeviceError::PingError(e)),
+                }
+            }
+            Tsr1000Request::GotoBootloader => match self.goto_bootloader().await {
+                Ok(_) => Ok(PingAnswer::PingAcknowledge(PingRequest::Tsr1000(msg))),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+        }
+    }
+}
+
 impl Requests<PingCommonRequest> for bluerobotics_ping::common::Device {
     type Reply = Result<PingAnswer, DeviceError>;
 
@@ -712,6 +1022,32 @@ impl Requests<PingCommonRequest> for bluerobotics_ping::ping360::Device {
     }
 }
 
+impl Requests<PingCommonRequest> for bluerobotics_ping::tsr1000::Device {
+    type Reply = Result<PingAnswer, DeviceError>;
+
+    async fn handle(&self, msg: PingCommonRequest) -> Self::Reply {
+        match &msg {
+            PingCommonRequest::ProtocolVersion => match self.protocol_version().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Common(
+                        bluerobotics_ping::common::Messages::ProtocolVersion(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            PingCommonRequest::DeviceInformation => match self.device_information().await {
+                Ok(result) => Ok(PingAnswer::PingMessage(
+                    bluerobotics_ping::Messages::Common(
+                        bluerobotics_ping::common::Messages::DeviceInformation(result),
+                    ),
+                )),
+                Err(e) => Err(DeviceError::PingError(e)),
+            },
+            _ => Ok(PingAnswer::NotImplemented(PingRequest::Common(msg))),
+        }
+    }
+}
+
 impl Requests<PingRequest> for DeviceActor {
     type Reply = PingAnswer;
     async fn handle(&self, msg: PingRequest) -> Self::Reply {
@@ -720,6 +1056,7 @@ impl Requests<PingRequest> for DeviceActor {
                 DeviceType::Common(_) => PingAnswer::NotSupported(msg),
                 DeviceType::Ping1D(device) => PingAnswer::Subscriber(device.subscribe()),
                 DeviceType::Ping360(device) => PingAnswer::Subscriber(device.subscribe()),
+                DeviceType::Tsr1000(device) => PingAnswer::Subscriber(device.subscribe()),
                 _ => todo!(),
             },
             PingRequest::Upgrade => todo!(),

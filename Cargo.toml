@@ -11,7 +11,7 @@ license = "MIT"
 actix = "0.13.3"
 actix-cors = "0.7.0"
 actix-web = "4.9.0"
-bluerobotics-ping = "0.3.3"
+bluerobotics-ping = { path = "../ping-rs" }
 actix-web-actors = "4.3.0"
 chrono = "0.4.38"
 clap = {version = "4.5.17", features = ["derive"] }

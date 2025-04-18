@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use bluerobotics_ping::ping1d::Device as Ping1D;
 use bluerobotics_ping::ping360::Device as Ping360;
+use bluerobotics_ping::tsr1000::Device as Tsr1000;
 use tokio::sync::broadcast;
 use tokio_serial::{SerialPort, SerialPortBuilderExt, SerialStream};
 use tracing::{error, info, trace, warn};
@@ -63,6 +64,7 @@ impl DeviceFactory {
                     DeviceType::Common(bluerobotics_ping::common::Device::new(udp_port))
                 }
                 DeviceSelection::Ping1D => DeviceType::Ping1D(Ping1D::new(udp_port)),
+                DeviceSelection::Tsr1000 => DeviceType::Tsr1000(Tsr1000::new(udp_port)),
                 DeviceSelection::Ping360 => DeviceType::Ping360(Ping360::new(udp_port)),
             },
             SourceType::Serial(serial_port) => match device_type {
@@ -70,6 +72,7 @@ impl DeviceFactory {
                     DeviceType::Common(bluerobotics_ping::common::Device::new(serial_port))
                 }
                 DeviceSelection::Ping1D => DeviceType::Ping1D(Ping1D::new(serial_port)),
+                DeviceSelection::Tsr1000 => DeviceType::Tsr1000(Tsr1000::new(serial_port)),
                 DeviceSelection::Ping360 => DeviceType::Ping360(Ping360::new(serial_port)),
             },
         };
@@ -90,6 +93,9 @@ impl DeviceFactory {
                             }
                             UpgradeResult::Ping1D => {
                                 device_type = DeviceSelection::Ping1D;
+                            }
+                            UpgradeResult::Tsr1000 => {
+                                device_type = DeviceSelection::Tsr1000;
                             }
                             UpgradeResult::Ping360 => {
                                 device_type = DeviceSelection::Ping360;

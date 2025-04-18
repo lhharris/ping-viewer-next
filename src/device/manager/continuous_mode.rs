@@ -49,6 +49,19 @@ impl DeviceManager {
                     }
                 }
             })),
+            DeviceSelection::Tsr1000 => Some(tokio::spawn(async move {
+                loop {
+                    match subscriber.recv().await {
+                        Ok(msg) => {
+                            Self::ping1d_continuous_mode_helper(msg, device_id);
+                        }
+                        Err(err) => {
+                            Self::handle_error_continuous_mode(err, device_id);
+                            break;
+                        }
+                    }
+                }
+            })),
             DeviceSelection::Ping360 => {
                 let device_properties = self.get_device_properties(device_id).await.ok()?;
                 let Some(DeviceProperties::Ping360(properties)) = device_properties else {

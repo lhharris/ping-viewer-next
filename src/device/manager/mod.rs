@@ -30,7 +30,7 @@ use uuid::Uuid;
 use super::devices::{DeviceActor, DeviceActorHandler, DeviceType, PingAnswer};
 use bluerobotics_ping::{
     common::{DeviceInformationStruct, ProtocolVersionStruct},
-    device::{Ping1D, Ping360},
+    device::{Ping1D, Ping360, Tsr1000},
 };
 use discovery_service::DiscoveryComponent;
 #[derive(Debug)]
@@ -50,6 +50,7 @@ pub enum DeviceProperties {
     Common(CommonProperties),
     Ping1D(Ping1DProperties),
     Ping360(Ping360Properties),
+    Tsr1000(Tsr1000Properties),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Apiv2Schema)]
@@ -74,6 +75,11 @@ pub struct CommonProperties {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Ping1DProperties {
+    pub common: CommonProperties,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Tsr1000Properties {
     pub common: CommonProperties,
 }
 
@@ -124,6 +130,7 @@ pub enum DeviceSelection {
     Common,
     Ping1D,
     Ping360,
+    Tsr1000,
     Auto,
 }
 
@@ -454,6 +461,9 @@ impl DeviceManager {
                 DeviceSelection::Ping360 => {
                     crate::device::devices::DeviceType::Ping360(Ping360::new(udp_port))
                 }
+                DeviceSelection::Tsr1000 => {
+                    crate::device::devices::DeviceType::Tsr1000(Tsr1000::new(udp_port))
+                }
             },
             SourceType::Serial(serial_port) => match device_selection {
                 DeviceSelection::Common | DeviceSelection::Auto => {
@@ -466,6 +476,9 @@ impl DeviceManager {
                 }
                 DeviceSelection::Ping360 => {
                     crate::device::devices::DeviceType::Ping360(Ping360::new(serial_port))
+                }
+                DeviceSelection::Tsr1000 => {
+                    crate::device::devices::DeviceType::Tsr1000(Tsr1000::new(serial_port))
                 }
             },
         };
@@ -489,6 +502,9 @@ impl DeviceManager {
                             }
                             super::devices::UpgradeResult::Ping360 => {
                                 device_selection = DeviceSelection::Ping360;
+                            }
+                            super::devices::UpgradeResult::Tsr1000 => {
+                                device_selection = DeviceSelection::Tsr1000;
                             }
                         }
                         break;
@@ -640,6 +656,7 @@ impl DeviceManager {
                 }
                 DeviceSelection::Ping1D => DeviceType::Ping1D(Ping1D::new(udp_port)),
                 DeviceSelection::Ping360 => DeviceType::Ping360(Ping360::new(udp_port)),
+                DeviceSelection::Tsr1000 => DeviceType::Tsr1000(Tsr1000::new(udp_port)),
             },
             SourceType::Serial(serial_port) => match device_type {
                 DeviceSelection::Common | DeviceSelection::Auto => {
@@ -647,6 +664,7 @@ impl DeviceManager {
                 }
                 DeviceSelection::Ping1D => DeviceType::Ping1D(Ping1D::new(serial_port)),
                 DeviceSelection::Ping360 => DeviceType::Ping360(Ping360::new(serial_port)),
+                DeviceSelection::Tsr1000 => DeviceType::Tsr1000(Tsr1000::new(serial_port)),
             },
         };
 
@@ -889,6 +907,13 @@ impl DeviceManager {
                 };
 
                 device.properties = Some(DeviceProperties::Ping1D(ping_1d_properties))
+            }
+            DeviceSelection::Tsr1000 => {
+                let tsr1000_properties = Tsr1000Properties {
+                    common: common_properties,
+                };
+
+                device.properties = Some(DeviceProperties::Tsr1000(tsr1000_properties))
             }
             DeviceSelection::Ping360 => {
                 let device_data = handler
