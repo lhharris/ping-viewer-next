@@ -66,6 +66,7 @@ pub fn register_services(cfg: &mut web::ServiceConfig) {
         .service(device_manager_device_get)
         .service(device_manager_device_ping1d_get)
         .service(device_manager_device_ping360_get)
+        .service(device_manager_device_tsr1000_get)
         .service(device_manager_device_common_get)
         .service(addons_handler)
         .service(cockpit_extras)
@@ -235,6 +236,28 @@ async fn device_manager_device_ping360_get(
 }
 
 #[api_v2_operation(tags("Device Manager : Device"))]
+#[get("device_manager/{device}/tsr1000{request}")]
+async fn device_manager_device_tsr1000_get(
+    manager_handler: web::Data<ManagerActorHandler>,
+    info: web::Path<(Uuid, crate::device::devices::Tsr1000Request)>,
+) -> Result<Json<crate::device::manager::Answer>, Error> {
+    let info = info.into_inner();
+    let uuid = info.0;
+    let request = info.1;
+
+    let request = crate::device::devices::PingRequest::Tsr1000(request);
+
+    let request =
+        crate::device::manager::Request::Ping(crate::device::manager::DeviceRequestStruct {
+            uuid,
+            device_request: request,
+        });
+
+    send_request_and_broadcast(&manager_handler, request).await
+}
+
+
+#[api_v2_operation(tags("Device Manager : Device"))]
 #[get("device_manager/{device}/common/{request}")]
 async fn device_manager_device_common_get(
     manager_handler: web::Data<ManagerActorHandler>,
@@ -334,6 +357,7 @@ async fn cockpit_extras(
             let name = match device.device_type {
                 crate::device::manager::DeviceSelection::Ping1D => Some("ping1d"),
                 crate::device::manager::DeviceSelection::Ping360 => Some("ping360"),
+                crate::device::manager::DeviceSelection::Tsr1000 => Some("tsr1000"),
                 _ => None,
             }?;
 

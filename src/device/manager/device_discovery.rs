@@ -288,13 +288,14 @@ async fn auto_detect_baudrate(path: String) -> Result<u32, ManagerError> {
     const TOTAL_CHECK_TIMEOUT_MS: u64 = 2000;
 
     let baud_rates = [
-        2500000, 2000000, 1843200, 921600, 460800, 230400, 115200, 9600,
+        //2500000, 2000000, 1843200, 921600, 460800, 230400, 115200, 9600,
+        115200,
     ];
     let mut baudrate_results: HashMap<u32, BaudrateCheckResult> = HashMap::new();
 
+    debug!("trying port: {}", path);
     for &rate in &baud_rates {
         debug!("auto_detect_baudrate: Testing baud rate: {}", rate);
-
         let mut serial_stream = match tokio_serial::new(path.clone(), rate).open_native_async() {
             Ok(stream) => stream,
             Err(err) => {

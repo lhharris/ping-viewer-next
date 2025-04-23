@@ -174,7 +174,7 @@ impl DeviceActor {
                     }
                 };
                 if device_type_check == 1 {
-                    return Ok(PingAnswer::UpgradeResult(UpgradeResult::Ping1D));
+                    return Ok(PingAnswer::UpgradeResult(UpgradeResult::Tsr1000));
                 };
                 device_type_check
             }
@@ -194,7 +194,7 @@ impl DeviceActor {
             match device_type_check {
                 1 => DeviceType::Ping1D(bluerobotics_ping::ping1d::Device { common }),
                 2 => DeviceType::Ping360(bluerobotics_ping::ping360::Device { common }),
-	      100 => DeviceType::Tsr1000(bluerobotics_ping::tsr1000::Device { common }),
+              100 => DeviceType::Tsr1000(bluerobotics_ping::tsr1000::Device { common }),
                 _ => DeviceType::Common(bluerobotics_ping::common::Device { common }),
             }
         }
